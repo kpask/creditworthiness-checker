@@ -1,0 +1,20 @@
+
+{
+  "statusMessage": "Success",
+  "creditRegisterExtract": {
+    "extractReference": "8c1b8b4d-45c2-4db5-9b9e-101003000003",
+    "creationTimeUtc": "2026-10-20T08:40:00Z",
+    "personRequested": {
+      "idCodeType": "PersonalIdentityCode",
+      "idCode": "TEST-003"
+    },
+    "owner": {
+      "idCodeType": "BusinessId",
+      "idCode": "MOCK-OWNER-001",
+      "countryCode": "FI"
+    },
+    "deceasedPerson": {
+      "dateOfDeath": "2024-12-18"
+    }
+  }
+}

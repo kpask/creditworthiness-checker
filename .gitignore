@@ -1,0 +1,43 @@
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*.tmp
+*.log
+
+# Java / Spring Boot
+**/target/
+**/.classpath
+**/.project
+**/.settings/
+**/.factorypath
+**/.springBeans
+**/.sts4-cache/
+**/bin/
+**/build/
+**/out/
+**/.idea/
+**/.vscode/
+
+# Local runtime config and secrets
+**/application.properties
+!**/application.properties.template
+
+# Frontend / Node
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/.vite/
+**/.parcel-cache/
+**/.cache/
+**/.env
+**/.env.*
+!**/.env.example
+
+# Database / local data
+*.sqlite
+*.sqlite3
+*.db

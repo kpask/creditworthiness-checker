@@ -1,0 +1,11 @@
+spring.application.name=creditworthiness-checker
+pcr.requester.id-code-type=PersonalIdentityCode
+pcr.requester.id-code=${PCR_REQUESTER_ID}
+pcr.requester.country=FI
+pcr.base-url=http://localhost:8080
+mock-pcr.available=true
+spring.datasource.url=jdbc:postgresql://localhost:5432/creditworthiness
+spring.datasource.username=postgres
+spring.datasource.password=your-password
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update

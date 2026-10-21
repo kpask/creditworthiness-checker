@@ -1,0 +1,29 @@
+
+{
+  "statusMessage": "Success",
+  "creditRegisterExtract": {
+    "extractReference": "8c1b8b4d-45c2-4db5-9b9e-101002000002",
+    "creationTimeUtc": "2026-10-20T08:35:00Z",
+    "personRequested": {
+      "idCodeType": "PersonalIdentityCode",
+      "idCode": "TEST-002"
+    },
+    "owner": {
+      "idCodeType": "BusinessId",
+      "idCode": "MOCK-OWNER-001",
+      "countryCode": "FI"
+    },
+    "voluntaryBanOnCredits": {
+      "isInEffect": true
+    },
+    "creditInformationSummary": {
+      "lendersCount": 0,
+      "loanContractsCount": 0,
+      "guaranteedLoanContractsCount": 0,
+      "repaymentsPaidLastAmount": [],
+      "sumOfMonthlyLeasingInstalments": []
+    },
+    "loans": [],
+    "incomeData": []
+  }
+}

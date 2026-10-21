@@ -1,0 +1,162 @@
+{
+  "statusMessage": "Success",
+  "creditRegisterExtract": {
+    "extractReference": "8c1b8b4d-45c2-4db5-9b9e-101002000004",
+    "creationTimeUtc": "2026-10-20T08:35:00Z",
+    "personRequested": {
+      "idCodeType": "PersonalIdentityCode",
+      "idCode": "TEST-004"
+    },
+    "owner": {
+      "idCodeType": "BusinessId",
+      "idCode": "MOCK-OWNER-001",
+      "countryCode": "FI"
+    },
+    "voluntaryBanOnCredits": {
+      "isInEffect": true,
+      "reason": "RiskOfIdentityTheft"
+    },
+    "creditInformationSummary": {
+      "lendersCount": 3,
+      "loanContractsCount": 4,
+      "guaranteedLoanContractsCount": 1,
+      "repaymentsPaidLastAmount": [
+        {"currencyCode": "EUR", "sum": 485.50}
+      ],
+      "sumOfMonthlyLeasingInstalments": [
+        {"currencyCode": "EUR", "sum": 249.90}
+      ]
+    },
+    "loans": [
+      {
+        "loanType": "LumpSumLoan",
+        "contractDate": "2023-04-15",
+        "isLoanWithCollateral": true,
+        "collateralType": ["ApartmentOrRealEstate"],
+        "borrowersCount": 1,
+        "currencyCode": "EUR",
+        "businessInformation": {
+          "borrowerBusinessID": "FI12345678",
+          "borrowerBusinessName": "Nordic Consumer Finance Oy"
+        },
+        "defermentPeriods": [
+          {"startDate": "2025-06-01", "endDate": "2025-08-31"}
+        ],
+        "paymentPlan": {
+          "isInDebtArrangement": false,
+          "isInBusinessRestructuringProgram": false,
+          "accuracyIsDenied": false
+        },
+        "lumpSumLoan": {
+          "repaymentMethod": "Annuities",
+          "purposeOfUse": "HomeLoan",
+          "amountIssued": 18000.00,
+          "amountPaid": 6200.00,
+          "balance": 11800.00,
+          "plannedFinalDueDate": "2029-04-15",
+          "amortizationFrequency": 12
+        },
+        "delayedAmount": []
+      },
+      {
+        "loanType": "LumpSumLoan",
+        "contractDate": "2024-02-10",
+        "isLoanWithCollateral": false,
+        "collateralType": [],
+        "borrowersCount": 1,
+        "currencyCode": "EUR",
+        "businessInformation": {
+          "borrowerBusinessID": "FI87654321",
+          "borrowerBusinessName": "Suomi Consumer Credit Oy"
+        },
+        "defermentPeriods": [],
+        "paymentPlan": {
+          "isInDebtArrangement": false,
+          "isInBusinessRestructuringProgram": false,
+          "accuracyIsDenied": false
+        },
+        "lumpSumLoan": {
+          "repaymentMethod": "FixedSizePayments",
+          "purposeOfUse": "OtherConsumerCredit",
+          "amountIssued": 5000.00,
+          "amountPaid": 1800.00,
+          "balance": 3200.00,
+          "plannedFinalDueDate": "2028-02-10",
+          "amortizationFrequency": 12
+        },
+        "delayedAmount": [
+          {
+            "delayedInstalment": 125.00,
+            "originalDueDate": "2026-09-15",
+            "isForeclosed": false
+          }
+        ]
+      },
+      {
+        "loanType": "RunningAccountLoan",
+        "contractDate": "2025-01-05",
+        "isLoanWithCollateral": false,
+        "collateralType": [],
+        "borrowersCount": 1,
+        "currencyCode": "EUR",
+        "businessInformation": {
+          "borrowerBusinessID": "FI11223344",
+          "borrowerBusinessName": "Everyday Credit Finland Oy"
+        },
+        "defermentPeriods": [],
+        "paymentPlan": {
+          "isInDebtArrangement": false,
+          "isInBusinessRestructuringProgram": false,
+          "accuracyIsDenied": false
+        },
+        "runningAccountLoan": {
+          "creditLimit": 4000.00,
+          "balance": 1350.75,
+          "balanceDate": "2026-10-19"
+        },
+        "delayedAmount": []
+      },
+      {
+        "loanType": "Leasing",
+        "contractDate": "2025-07-01",
+        "isLoanWithCollateral": true,
+        "collateralType": ["InstalmentSaleItem"],
+        "borrowersCount": 1,
+        "currencyCode": "EUR",
+        "businessInformation": {
+          "borrowerBusinessID": "FI44332211",
+          "borrowerBusinessName": "Arctic Mobility Leasing Oy"
+        },
+        "defermentPeriods": [],
+        "paymentPlan": {
+          "isInDebtArrangement": false,
+          "isInBusinessRestructuringProgram": false,
+          "accuracyIsDenied": false
+        },
+        "leasingContract": {
+          "contractPeriodStartDate": "2025-07-01",
+          "transactionPrice": 14500.00
+        },
+        "delayedAmount": []
+      }
+    ],
+    "incomeData": [
+      {
+        "year": 2025,
+        "months": [
+          {"month": 1, "wagesGrossAmount": 3200.00, "wagesNetAmount": 2480.00, "benefitsGrossAmount": 0.00, "benefitsNetAmount": 0.00},
+          {"month": 2, "wagesGrossAmount": 3200.00, "wagesNetAmount": 2480.00, "benefitsGrossAmount": 150.00, "benefitsNetAmount": 150.00},
+          {"month": 3, "wagesGrossAmount": 3350.00, "wagesNetAmount": 2580.00, "benefitsGrossAmount": 0.00, "benefitsNetAmount": 0.00}
+        ]
+      },
+      {
+        "year": 2026,
+        "months": [
+          {"month": 1, "wagesGrossAmount": 3400.00, "wagesNetAmount": 2610.00, "benefitsGrossAmount": 0.00, "benefitsNetAmount": 0.00},
+          {"month": 2, "wagesGrossAmount": 3400.00, "wagesNetAmount": 2610.00, "benefitsGrossAmount": 0.00, "benefitsNetAmount": 0.00},
+          {"month": 3, "wagesGrossAmount": 3400.00, "wagesNetAmount": 2610.00, "benefitsGrossAmount": 200.00, "benefitsNetAmount": 200.00}
+        ]
+      }
+    ]
+  }
+}
