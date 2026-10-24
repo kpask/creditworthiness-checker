@@ -1,0 +1,19 @@
+spring.application.name=MonitoringService
+
+# Server port
+server.port=${SERVER_PORT:8081}
+
+# Database (PostgreSQL)
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/monitoring}
+spring.datasource.username=${DB_USERNAME:postgres}
+spring.datasource.password=${DB_PASSWORD:postgres}
+spring.jpa.hibernate.ddl-auto=${DB_DDL_AUTO:update}
+
+# Monitoring configuration
+monitoring.backend-url=${MONITORING_BACKEND_URL:http://localhost:8080}
+monitoring.cron=${MONITORING_CRON:0 */1 * * * *}
+
+# Email (SMTP) — MailHog default for local dev
+spring.mail.host=${MAIL_HOST:localhost}
+spring.mail.port=${MAIL_PORT:1025}
+monitoring.mail.to=${MONITORING_MAIL_TO:pcr_monitoring@dansketest.dk}

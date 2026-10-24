@@ -4,12 +4,13 @@ import com.example.creditworthinesschecker.enums.Country;
 import com.example.creditworthinesschecker.enums.CreditRegisterExtractPurpose;
 import com.example.creditworthinesschecker.enums.IdCodeType;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 public record PcrCreditExtractRequest(
-        @NotEmpty IdCodeType idCodeType,
+        @NotNull IdCodeType idCodeType,
         @NotEmpty String requesterIdCode,
-        @NotEmpty Country requesterCountry,
-        @NotEmpty IdCodeType requestedIdCodeType,
+        @NotNull Country requesterCountry,
+        @NotNull IdCodeType requestedIdCodeType,
         @NotEmpty String requestedIdCode,
-        @NotEmpty CreditRegisterExtractPurpose extractPurpose
+        @NotNull CreditRegisterExtractPurpose extractPurpose
 ) {}

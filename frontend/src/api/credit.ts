@@ -2,9 +2,11 @@ import type {
   CreditExtractHistoryItem,
   CreditExtractRequest,
   CreditExtractResponse,
+  FinancingRequestPayload,
+  FinancingRequestResponse,
 } from '../types/credit';
 
-const API_BASE = 'http://localhost:8080';
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080';
 
 async function parseJson<T>(response: Response): Promise<T> {
   if (response.status === 204 || response.headers.get('content-length') === '0') {
@@ -60,4 +62,37 @@ export async function fetchCreditExtractById(creditExtractId: string) {
   });
 
   return handleResponse<CreditExtractResponse>(response);
+}
+
+export async function createFinancingRequest(payload: FinancingRequestPayload) {
+  const response = await fetch(`${API_BASE}/financing-requests`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<FinancingRequestResponse>(response);
+}
+
+export async function fetchFinancingRequests() {
+  const response = await fetch(`${API_BASE}/financing-requests`, {
+    method: 'GET',
+  });
+
+  return handleResponse<FinancingRequestResponse[]>(response);
+}
+
+export async function fetchFlaggedFinancingRequests(createdAfter?: string) {
+  const url = new URL(`${API_BASE}/financing-requests/flagged`);
+  if (createdAfter) {
+    url.searchParams.set('createdAfter', createdAfter);
+  }
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+  });
+
+  return handleResponse<FinancingRequestResponse[]>(response);
 }

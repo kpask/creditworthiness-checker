@@ -12,12 +12,13 @@ import com.example.creditworthinesschecker.exceptions.NotFoundException;
 import com.example.creditworthinesschecker.exceptions.PcrRequestFailedException;
 import com.example.creditworthinesschecker.exceptions.PcrUnavailableException;
 import com.example.creditworthinesschecker.pcr.PcrClient;
-import com.example.creditworthinesschecker.persistence.CreditExtract;
+import com.example.creditworthinesschecker.entity.CreditExtract;
 import com.example.creditworthinesschecker.repository.CreditRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Instant;
 import java.util.List;
@@ -107,6 +108,53 @@ class CreditServiceTest {
 
         assertNotNull(ex.getMessage());
         verify(creditRepository, never()).save(any());
+    }
+
+    @Test
+    void fetchFailsWhenPcrUnavailableAndNoHistoryExists() {
+        CreditExtractRequest request = new CreditExtractRequest("TEST-001", CreditRegisterExtractPurpose.NewConsumerCredit);
+
+        when(pcrClient.fetchExtract(any(PcrCreditExtractRequest.class)))
+                .thenThrow(new PcrUnavailableException("PCR is unavailable."));
+        when(creditRepository.findFirstByPersonIdCodeOrderByFetchedAtDesc("TEST-001")).thenReturn(Optional.empty());
+
+        PcrRequestFailedException ex = assertThrows(PcrRequestFailedException.class,
+                () -> service.fetchCreditRegisterExtract(request));
+
+        assertEquals("PCR is unavailable and no historical extract exists.", ex.getMessage());
+        verify(creditRepository).findFirstByPersonIdCodeOrderByFetchedAtDesc("TEST-001");
+    }
+
+    @Test
+    void fetchWrapsRestClientFailures() {
+        CreditExtractRequest request = new CreditExtractRequest("TEST-001", CreditRegisterExtractPurpose.NewConsumerCredit);
+
+        when(pcrClient.fetchExtract(any(PcrCreditExtractRequest.class)))
+                .thenThrow(new RestClientResponseException("bad", 500, "Internal Server Error", null, null, null));
+
+        PcrRequestFailedException ex = assertThrows(PcrRequestFailedException.class,
+                () -> service.fetchCreditRegisterExtract(request));
+
+        assertTrue(ex.getMessage().contains("PCR returned HTTP 500"));
+        verify(creditRepository, never()).save(any());
+    }
+
+    @Test
+    void getExtractByIdReturnsHistoricalResponseWhenFound() {
+        UUID extractId = UUID.randomUUID();
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("statusMessage", "OK");
+        payload.putObject("creditRegisterExtract").put("extractReference", extractId.toString());
+
+        CreditExtract extract = new CreditExtract("TEST-001", extractId, Instant.now(), true, payload);
+        when(creditRepository.findById(extractId)).thenReturn(Optional.of(extract));
+
+        CreditExtractResponse response = service.getExtractById(extractId);
+
+        assertNotNull(response);
+        assertTrue(response.historical());
+        assertNotNull(response.extract());
+        assertEquals(extractId, response.extract().creditRegisterExtract().extractReference());
     }
 
     @Test

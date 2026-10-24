@@ -1,6 +1,6 @@
 package com.example.creditworthinesschecker.repository;
 
-import com.example.creditworthinesschecker.persistence.CreditExtract;
+import com.example.creditworthinesschecker.entity.CreditExtract;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

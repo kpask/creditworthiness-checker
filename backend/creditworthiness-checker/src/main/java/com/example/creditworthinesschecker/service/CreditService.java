@@ -5,7 +5,7 @@ import com.example.creditworthinesschecker.exceptions.NotFoundException;
 import com.example.creditworthinesschecker.exceptions.PcrRequestFailedException;
 import com.example.creditworthinesschecker.exceptions.PcrUnavailableException;
 import com.example.creditworthinesschecker.pcr.PcrClient;
-import com.example.creditworthinesschecker.persistence.CreditExtract;
+import com.example.creditworthinesschecker.entity.CreditExtract;
 import com.example.creditworthinesschecker.repository.CreditRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
@@ -41,14 +41,14 @@ public class CreditService {
                     request.extractPurpose()
             );
             PcrCreditRegisterExtractResponse response = pcrClient.fetchExtract(pcrRequest);
+            if(response == null || response.creditRegisterExtract() == null) {
+                throw new PcrRequestFailedException("PCR returned a response without a credit register extract.", null);
+            }
 
-            boolean voluntaryBanInEffect = response.creditRegisterExtract() != null
-                    && response.creditRegisterExtract().voluntaryBanOnCredits() != null
-                    && Boolean.TRUE.equals(response.creditRegisterExtract().voluntaryBanOnCredits().isInEffect());
-
+            boolean voluntaryBanInEffect = response.creditRegisterExtract().voluntaryBanOnCredits() != null;
             creditRepository.save(new CreditExtract(
                     request.personalIdCode(),
-                    response.creditRegisterExtract() != null ? response.creditRegisterExtract().extractReference() : null,
+                    response.creditRegisterExtract().extractReference(),
                     Instant.now(),
                     voluntaryBanInEffect,
                     objectMapper.valueToTree(response)

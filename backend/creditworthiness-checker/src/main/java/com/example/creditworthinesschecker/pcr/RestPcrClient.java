@@ -34,6 +34,7 @@ public class RestPcrClient implements PcrClient {
     }
 
     public PcrCreditRegisterExtractResponse fetchExtract(PcrCreditExtractRequest request) {
+        System.out.println("PCR URL: http://localhost:8080/mock-pcr/credit-register-extract");
         try {
             return restClient.post()
                     .uri("/mock-pcr/credit-register-extract")

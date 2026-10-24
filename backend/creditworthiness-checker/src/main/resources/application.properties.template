@@ -1,11 +1,21 @@
 spring.application.name=creditworthiness-checker
-pcr.requester.id-code-type=PersonalIdentityCode
-pcr.requester.id-code=${PCR_REQUESTER_ID}
-pcr.requester.country=FI
-pcr.base-url=http://localhost:8080
-mock-pcr.available=true
-spring.datasource.url=jdbc:postgresql://localhost:5432/creditworthiness
-spring.datasource.username=postgres
-spring.datasource.password=your-password
+
+# PCR requester identification (overridable via environment variables)
+pcr.requester.id-code-type=${PCR_REQUESTER_ID_TYPE:PersonalIdentityCode}
+pcr.requester.id-code=${PCR_REQUESTER_ID:1234567-8}
+pcr.requester.country=${PCR_REQUESTER_COUNTRY:FI}
+
+# PCR API base URL — by default the mock PCR runs in the same application
+pcr.base-url=${PCR_BASE_URL:http://localhost:8080}
+pcr.connect-timeout-ms=${PCR_CONNECT_TIMEOUT_MS:2000}
+pcr.read-timeout-ms=${PCR_READ_TIMEOUT_MS:5000}
+
+# Mock PCR availability toggle for local testing
+mock-pcr.available=${MOCK_PCR_AVAILABLE:true}
+
+# Database (PostgreSQL)
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/creditworthiness}
+spring.datasource.username=${DB_USERNAME:postgres}
+spring.datasource.password=${DB_PASSWORD:postgres}
 spring.datasource.driver-class-name=org.postgresql.Driver
-spring.jpa.hibernate.ddl-auto=update
+spring.jpa.hibernate.ddl-auto=${DB_DDL_AUTO:update}

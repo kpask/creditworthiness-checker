@@ -1,4 +1,4 @@
-package com.example.creditworthinesschecker.persistence;
+package com.example.creditworthinesschecker.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;

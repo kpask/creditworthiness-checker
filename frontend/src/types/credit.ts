@@ -9,9 +9,38 @@ export type CreditRegisterExtractPurpose =
   | 'ChangesToTerms'
   | 'GuaranteeOrThirdPartyPledge';
 
+export type LoanType = 'LumpSumLoan' | 'RunningAccountLoan' | 'Leasing' | 'GuaranteeReceivable';
+export type LoanPurposeOfUse =
+  | 'HomeLoan'
+  | 'HomeLoanForFirstHome'
+  | 'HomeLoanForLeisureHouse'
+  | 'HomeLoanForInvestmentPurposes'
+  | 'StudentLoan'
+  | 'LoanForPurchaseOfVehicleOrCraft'
+  | 'OtherConsumerCredit'
+  | 'OtherLoan'
+  | 'LoanForBusinessActivities'
+  | 'GuaranteeReceivable';
+
 export interface CreditExtractRequest {
   personalIdCode: string;
   extractPurpose: CreditRegisterExtractPurpose;
+}
+
+export interface FinancingRequestPayload {
+  personIdCode: string;
+  loanType: LoanType;
+  loanPurposeOfUse: LoanPurposeOfUse;
+}
+
+export interface FinancingRequestResponse {
+  id: string;
+  personIdCode: string;
+  loanType: LoanType;
+  loanPurposeOfUse: LoanPurposeOfUse;
+  submittedAt: string;
+  banCheckStatus: 'PENDING' | 'CHECKED' | 'FAILED';
+  voluntaryBanInEffect: boolean | null;
 }
 
 export interface CreditExtractResponse {

@@ -1,103 +1,222 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import './App.css';
-import { fetchCreditExtract, fetchCreditExtractById, fetchCreditExtractHistory } from './api/credit';
+import { useEffect, useState, type ReactNode } from "react";
+import "./App.css";
+import {
+  createFinancingRequest,
+  fetchCreditExtract,
+  fetchCreditExtractById,
+  fetchCreditExtractHistory,
+  fetchFinancingRequests,
+} from "./api/credit";
 import type {
   CreditExtractHistoryItem,
   CreditExtractRequest,
   CreditRegisterExtract,
   CreditRegisterExtractPurpose,
-} from './types/credit';
+  FinancingRequestPayload,
+  FinancingRequestResponse,
+  LoanPurposeOfUse,
+  LoanType,
+} from "./types/credit";
 
 const DEFAULT_REQUEST: CreditExtractRequest = {
-  personalIdCode: 'TEST-001',
-  extractPurpose: 'NewConsumerCredit',
+  personalIdCode: "TEST-001",
+  extractPurpose: "NewConsumerCredit",
 };
 
-const formatDateTime = (value?: string | null) => {
-  if (!value) return 'Not provided';
+const DEFAULT_FINANCING_REQUEST: FinancingRequestPayload = {
+  personIdCode: "TEST-001",
+  loanType: "LumpSumLoan",
+  loanPurposeOfUse: "OtherConsumerCredit",
+};
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+const parseDateValue = (
+  value: string | number | null | undefined
+): Date | null => {
+  if (value === null || value === undefined || value === "") return null;
 
-  return new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'UTC',
+  if (typeof value === "number") {
+    const timestamp =
+      Math.abs(value) < 1_000_000_000_000 ? value * 1000 : value;
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    const numericValue = Number(trimmed);
+    const timestamp =
+      Math.abs(numericValue) < 1_000_000_000_000
+        ? numericValue * 1000
+        : numericValue;
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(trimmed);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDateTime = (value?: string | number | null) => {
+  const date = parseDateValue(value ?? null);
+  if (!date) return value ? String(value) : "Not provided";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
   }).format(date);
 };
 
-const formatDate = (value?: string | null) => {
-  if (!value) return 'Not provided';
+const formatDate = (value?: string | number | null) => {
+  const date = parseDateValue(value ?? null);
+  if (!date) return value ? String(value) : "Not provided";
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'medium',
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
   }).format(date);
 };
 
 const formatScalar = (value: unknown): string => {
-  if (value === null || value === undefined || value === '') return 'Not provided';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'Not provided';
-  if (typeof value === 'string') {
+  if (value === null || value === undefined || value === "")
+    return "Not provided";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number")
+    return Number.isFinite(value) ? String(value) : "Not provided";
+  if (typeof value === "string") {
     if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return formatDateTime(value);
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
     return value;
   }
-  if (Array.isArray(value)) return value.length > 0 ? value.map((item) => formatScalar(item)).join(', ') : 'Not provided';
+  if (Array.isArray(value))
+    return value.length > 0
+      ? value.map((item) => formatScalar(item)).join(", ")
+      : "Not provided";
   return String(value);
 };
 
 const isCurrencyFieldKey = (key: string) =>
-  /(amount|balance|sum|limit|price|instalment|issued|paid|gross|net|value)/i.test(key);
+  /(amount|balance|sum|limit|price|instalment|issued|paid|gross|net|value)/i.test(
+    key
+  );
 
-const isCurrencyAmountObject = (value: unknown): value is { currencyCode?: string | null; sum?: number | string | null } => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+const isCurrencyAmountObject = (
+  value: unknown
+): value is { currencyCode?: string | null; sum?: number | string | null } => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
 
   const record = value as Record<string, unknown>;
-  return ('currencyCode' in record || 'sum' in record) && !('loanType' in record || 'year' in record || 'month' in record);
+  return (
+    ("currencyCode" in record || "sum" in record) &&
+    !("loanType" in record || "year" in record || "month" in record)
+  );
 };
 
-const formatCurrencyAmountSummary = (value: { currencyCode?: string | null; sum?: number | string | null } | null | undefined): string => {
-  if (!value) return 'Not provided';
+const formatCurrencyAmountSummary = (
+  value:
+    | { currencyCode?: string | null; sum?: number | string | null }
+    | null
+    | undefined
+): string => {
+  if (!value) return "Not provided";
 
   const sumValue = value.sum;
   const currencyValue = value.currencyCode;
-  const formattedSum = sumValue === null || sumValue === undefined || sumValue === '' ? 'Not provided' : formatScalar(sumValue);
-  const formattedCurrency = currencyValue === null || currencyValue === undefined || currencyValue === '' ? '' : formatScalar(currencyValue);
+  const formattedSum =
+    sumValue === null || sumValue === undefined || sumValue === ""
+      ? "Not provided"
+      : formatScalar(sumValue);
+  const formattedCurrency =
+    currencyValue === null ||
+    currencyValue === undefined ||
+    currencyValue === ""
+      ? ""
+      : formatScalar(currencyValue);
 
   if (!formattedCurrency) return `Sum: ${formattedSum}`;
   return `Sum: ${formattedSum} ${formattedCurrency}`;
 };
 
-const isCurrencyAmountList = (value: unknown): value is Array<{ currencyCode?: string | null; sum?: number | string | null }> => {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => isCurrencyAmountObject(item));
+const isCurrencyAmountList = (
+  value: unknown
+): value is Array<{
+  currencyCode?: string | null;
+  sum?: number | string | null;
+}> => {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => isCurrencyAmountObject(item))
+  );
 };
 
-const isDateRangeList = (value: unknown): value is Array<Record<string, unknown>> => {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => !!(item && typeof item === 'object' && ('startDate' in item || 'endDate' in item)));
+const isDateRangeList = (
+  value: unknown
+): value is Array<Record<string, unknown>> => {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (item) =>
+        !!(
+          item &&
+          typeof item === "object" &&
+          ("startDate" in item || "endDate" in item)
+        )
+    )
+  );
 };
 
-const isDelayedAmountList = (value: unknown): value is Array<Record<string, unknown>> => {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => !!(item && typeof item === 'object' && ('delayedInstalment' in item || 'originalDueDate' in item || 'isForeclosed' in item)));
+const isDelayedAmountList = (
+  value: unknown
+): value is Array<Record<string, unknown>> => {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (item) =>
+        !!(
+          item &&
+          typeof item === "object" &&
+          ("delayedInstalment" in item ||
+            "originalDueDate" in item ||
+            "isForeclosed" in item)
+        )
+    )
+  );
 };
 
-const formatCurrencyAwareValue = (key: string, value: unknown, currencyCode?: string | null): ReactNode => {
-  if (!currencyCode || !isCurrencyFieldKey(key) || value === null || value === undefined || value === '') {
+const formatCurrencyAwareValue = (
+  key: string,
+  value: unknown,
+  currencyCode?: string | null
+): ReactNode => {
+  if (
+    !currencyCode ||
+    !isCurrencyFieldKey(key) ||
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return renderDataValue(value, currencyCode);
   }
 
-  if (typeof value === 'number' || typeof value === 'string') {
+  if (typeof value === "number" || typeof value === "string") {
     return `${formatScalar(value)} ${currencyCode}`;
   }
 
   if (Array.isArray(value)) {
-    return value.length === 0 ? 'Not provided' : value.map((entry) => formatCurrencyAwareValue(key, entry, currencyCode)).join(', ');
+    return value.length === 0
+      ? "Not provided"
+      : value
+          .map((entry) => formatCurrencyAwareValue(key, entry, currencyCode))
+          .join(", ");
   }
 
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     return renderDataValue(value, currencyCode);
   }
 
@@ -105,29 +224,30 @@ const formatCurrencyAwareValue = (key: string, value: unknown, currencyCode?: st
 };
 
 const monthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
-const isMonthFieldKey = (key: string) => ['month', 'monthNumber', 'monthOfYear'].includes(key.toLowerCase());
+const isMonthFieldKey = (key: string) =>
+  ["month", "monthNumber", "monthOfYear"].includes(key.toLowerCase());
 
 const formatMonthLabel = (value: unknown): string | null => {
-  if (typeof value === 'number' && Number.isInteger(value)) {
+  if (typeof value === "number" && Number.isInteger(value)) {
     const index = value - 1;
     if (index >= 0 && index < monthNames.length) return monthNames[index];
   }
 
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const trimmed = value.trim();
     const parsed = Number(trimmed);
     if (Number.isInteger(parsed)) {
@@ -148,57 +268,91 @@ const resolveMonthValue = (value: unknown): unknown => {
 };
 
 const getBanStatus = (value: boolean | null | undefined) => {
-  if (value === true) return 'Active';
-  return 'Inactive';
+  if (value === true) return "Active";
+  return "Inactive";
 };
 
 const humanizeLabel = (value: string) =>
   value
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-const shouldSuppressTitleField = (key: string, record: Record<string, unknown>): boolean => {
+const shouldSuppressTitleField = (
+  key: string,
+  record: Record<string, unknown>
+): boolean => {
   const title = getContextualTitle(record, 0);
   const normalizedKey = key.toLowerCase();
   const yearValue = record.year;
-  const monthValue = formatMonthLabel(record.month ?? record.monthNumber ?? record.monthOfYear);
+  const monthValue = formatMonthLabel(
+    record.month ?? record.monthNumber ?? record.monthOfYear
+  );
 
-  const yearString = typeof yearValue === 'number' || typeof yearValue === 'string' ? String(yearValue) : null;
-  const monthString = typeof monthValue === 'string' ? monthValue : null;
+  const yearString =
+    typeof yearValue === "number" || typeof yearValue === "string"
+      ? String(yearValue)
+      : null;
+  const monthString = typeof monthValue === "string" ? monthValue : null;
 
-  if (['year'].includes(normalizedKey) && yearString) {
-    return title === yearString || Boolean(monthString && title === `${monthString} ${yearString}`);
+  if (["year"].includes(normalizedKey) && yearString) {
+    return (
+      title === yearString ||
+      Boolean(monthString && title === `${monthString} ${yearString}`)
+    );
   }
 
-  if (['month', 'monthnumber', 'monthofyear'].includes(normalizedKey) && monthString) {
-    return title === monthString || Boolean(yearString && title === `${monthString} ${yearString}`);
+  if (
+    ["month", "monthnumber", "monthofyear"].includes(normalizedKey) &&
+    monthString
+  ) {
+    return (
+      title === monthString ||
+      Boolean(yearString && title === `${monthString} ${yearString}`)
+    );
   }
 
   return false;
 };
 
 const getContextualTitle = (value: unknown, fallbackIndex: number): string => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return `Item ${fallbackIndex + 1}`;
   }
 
   const record = value as Record<string, unknown>;
-  const loanType = typeof record.loanType === 'string' ? record.loanType : '';
-  const lenderName = typeof record.lenderName === 'string' ? record.lenderName : '';
-  const borrowerName = typeof record.borrowerBusinessName === 'string' ? record.borrowerBusinessName : '';
-  const businessName = typeof record.businessName === 'string' ? record.businessName : '';
-  const startDate = typeof record.startDate === 'string' ? record.startDate : null;
-  const endDate = typeof record.endDate === 'string' ? record.endDate : null;
-  const year = typeof record.year === 'number' ? record.year : null;
-  const monthValue = formatMonthLabel(record.month ?? record.monthNumber ?? record.monthOfYear);
-  const currencyCode = typeof record.currencyCode === 'string' ? record.currencyCode : null;
-  const sumValue = typeof record.sum === 'number' || typeof record.sum === 'string' ? record.sum : undefined;
+  const loanType = typeof record.loanType === "string" ? record.loanType : "";
+  const lenderName =
+    typeof record.lenderName === "string" ? record.lenderName : "";
+  const borrowerName =
+    typeof record.borrowerBusinessName === "string"
+      ? record.borrowerBusinessName
+      : "";
+  const businessName =
+    typeof record.businessName === "string" ? record.businessName : "";
+  const startDate =
+    typeof record.startDate === "string" ? record.startDate : null;
+  const endDate = typeof record.endDate === "string" ? record.endDate : null;
+  const year = typeof record.year === "number" ? record.year : null;
+  const monthValue = formatMonthLabel(
+    record.month ?? record.monthNumber ?? record.monthOfYear
+  );
+  const currencyCode =
+    typeof record.currencyCode === "string" ? record.currencyCode : null;
+  const sumValue =
+    typeof record.sum === "number" || typeof record.sum === "string"
+      ? record.sum
+      : undefined;
 
-  if (startDate || endDate) return `${formatDate(startDate ?? endDate ?? undefined)} - ${formatDate(endDate ?? startDate ?? undefined)}`;
-  if (currencyCode && sumValue !== undefined) return `${formatScalar(sumValue)} ${currencyCode}`;
+  if (startDate || endDate)
+    return `${formatDate(startDate ?? endDate ?? undefined)} - ${formatDate(
+      endDate ?? startDate ?? undefined
+    )}`;
+  if (currencyCode && sumValue !== undefined)
+    return `${formatScalar(sumValue)} ${currencyCode}`;
   if (monthValue && year) return `${monthValue} ${year}`;
-  if (loanType && (lenderName || borrowerName || businessName)) return `${loanType} · ${lenderName || borrowerName || businessName}`;
+  if (loanType && (lenderName || borrowerName || businessName))
+    return `${loanType} · ${lenderName || borrowerName || businessName}`;
   if (loanType) return loanType;
   if (lenderName) return lenderName;
   if (borrowerName) return borrowerName;
@@ -206,7 +360,8 @@ const getContextualTitle = (value: unknown, fallbackIndex: number): string => {
   if (monthValue) return monthValue;
   if (year) return String(year);
 
-  const yearValue = typeof record.year === 'string' ? Number(record.year) : null;
+  const yearValue =
+    typeof record.year === "string" ? Number(record.year) : null;
   if (yearValue && Number.isFinite(yearValue)) return String(yearValue);
 
   return `Item ${fallbackIndex + 1}`;
@@ -227,35 +382,52 @@ const orderDisplayEntries = (entries: [string, unknown][]) => {
   });
 };
 
-const formatInlinePairs = (value: Record<string, unknown>, inheritedCurrencyCode?: string | null): ReactNode => {
-  const currencyCode = typeof value.currencyCode === 'string' ? value.currencyCode : inheritedCurrencyCode ?? null;
+const formatInlinePairs = (
+  value: Record<string, unknown>,
+  inheritedCurrencyCode?: string | null
+): ReactNode => {
+  const currencyCode =
+    typeof value.currencyCode === "string"
+      ? value.currencyCode
+      : inheritedCurrencyCode ?? null;
 
   return (
     <div className="inline-pairs">
       {orderDisplayEntries(Object.entries(value))
-      .filter(
-        ([key, child]) =>
-          key !== 'currencyCode' &&
-          key !== 'months' &&
-          !shouldSuppressTitleField(key, value) &&
-          hasMeaningfulContent(child),
-      )
-      .map(([key, child]) => {
-        const resolvedValue = isMonthFieldKey(key) ? resolveMonthValue(child) : child;
-        const isBooleanLike = typeof resolvedValue === 'boolean';
-        return (
-          <div key={key} className="inline-pair">
-            <span className="inline-key">{humanizeLabel(key)}:</span>
-            <span className="inline-value">{isBooleanLike ? formatCurrencyAwareValue(key, resolvedValue, currencyCode) : formatCurrencyAwareValue(key, resolvedValue, currencyCode)}</span>
-          </div>
-        );
-      })}
-  </div>
-);
+        .filter(
+          ([key, child]) =>
+            key !== "currencyCode" &&
+            key !== "months" &&
+            !shouldSuppressTitleField(key, value) &&
+            hasMeaningfulContent(child)
+        )
+        .map(([key, child]) => {
+          const resolvedValue = isMonthFieldKey(key)
+            ? resolveMonthValue(child)
+            : child;
+          const isBooleanLike = typeof resolvedValue === "boolean";
+          return (
+            <div key={key} className="inline-pair">
+              <span className="inline-key">{humanizeLabel(key)}:</span>
+              <span className="inline-value">
+                {isBooleanLike
+                  ? formatCurrencyAwareValue(key, resolvedValue, currencyCode)
+                  : formatCurrencyAwareValue(key, resolvedValue, currencyCode)}
+              </span>
+            </div>
+          );
+        })}
+    </div>
+  );
 };
 
-const renderDataValue = (value: unknown, inheritedCurrencyCode?: string | null, contextKey?: string): ReactNode => {
-  if (value === null || value === undefined || value === '') return 'Not provided';
+const renderDataValue = (
+  value: unknown,
+  inheritedCurrencyCode?: string | null,
+  contextKey?: string
+): ReactNode => {
+  if (value === null || value === undefined || value === "")
+    return "Not provided";
 
   if (Array.isArray(value)) {
     if (value.length === 0) return null;
@@ -263,24 +435,36 @@ const renderDataValue = (value: unknown, inheritedCurrencyCode?: string | null, 
     const listLabel = contextKey
       ? humanizeLabel(contextKey)
       : isDelayedAmountList(value)
-        ? 'Delayed Amount'
-        : isDateRangeList(value)
-          ? 'Deferment Periods'
-          : isCurrencyAmountList(value)
-            ? 'Currency Amount'
-            : null;
+      ? "Delayed Amount"
+      : isDateRangeList(value)
+      ? "Deferment Periods"
+      : isCurrencyAmountList(value)
+      ? "Currency Amount"
+      : null;
 
-    if (listLabel && (isCurrencyAmountList(value) || isDateRangeList(value) || isDelayedAmountList(value))) {
+    if (
+      listLabel &&
+      (isCurrencyAmountList(value) ||
+        isDateRangeList(value) ||
+        isDelayedAmountList(value))
+    ) {
       return (
         <details className="nested-item" open={false}>
           <summary className="nested-summary">{listLabel}</summary>
           <div className="nested-body">
             {value.map((item, index) => {
               if (isCurrencyAmountList(value)) {
-                const currency = String((item as Record<string, unknown>).currencyCode ?? 'Unknown');
-                const amount = formatScalar((item as Record<string, unknown>).sum ?? 'Not provided');
+                const currency = String(
+                  (item as Record<string, unknown>).currencyCode ?? "Unknown"
+                );
+                const amount = formatScalar(
+                  (item as Record<string, unknown>).sum ?? "Not provided"
+                );
                 return (
-                  <div key={`${currency}-${amount}-${index}`} className="inline-pair">
+                  <div
+                    key={`${currency}-${amount}-${index}`}
+                    className="inline-pair"
+                  >
                     <span className="inline-key">{`${currency}:`}</span>
                     <span className="inline-value">{amount}</span>
                   </div>
@@ -288,21 +472,51 @@ const renderDataValue = (value: unknown, inheritedCurrencyCode?: string | null, 
               }
 
               if (isDateRangeList(value)) {
-                const startDate = formatDate((item as Record<string, unknown>).startDate as string | null | undefined);
-                const endDate = formatDate((item as Record<string, unknown>).endDate as string | null | undefined);
+                const startDate = formatDate(
+                  (item as Record<string, unknown>).startDate as
+                    | string
+                    | null
+                    | undefined
+                );
+                const endDate = formatDate(
+                  (item as Record<string, unknown>).endDate as
+                    | string
+                    | null
+                    | undefined
+                );
                 return (
-                  <div key={`${startDate}-${endDate}-${index}`} className="inline-pair">
+                  <div
+                    key={`${startDate}-${endDate}-${index}`}
+                    className="inline-pair"
+                  >
                     <span className="inline-value">{`${startDate} - ${endDate}`}</span>
                   </div>
                 );
               }
 
-              const delayedInstalment = formatScalar((item as Record<string, unknown>).delayedInstalment ?? 'Not provided');
-              const originalDueDate = formatDate((item as Record<string, unknown>).originalDueDate as string | null | undefined);
-              const isForeclosed = (item as Record<string, unknown>).isForeclosed;
-              const status = isForeclosed === true ? 'Foreclosed' : isForeclosed === false ? 'Not foreclosed' : 'Foreclosure unknown';
+              const delayedInstalment = formatScalar(
+                (item as Record<string, unknown>).delayedInstalment ??
+                  "Not provided"
+              );
+              const originalDueDate = formatDate(
+                (item as Record<string, unknown>).originalDueDate as
+                  | string
+                  | null
+                  | undefined
+              );
+              const isForeclosed = (item as Record<string, unknown>)
+                .isForeclosed;
+              const status =
+                isForeclosed === true
+                  ? "Foreclosed"
+                  : isForeclosed === false
+                  ? "Not foreclosed"
+                  : "Foreclosure unknown";
               return (
-                <div key={`${delayedInstalment}-${originalDueDate}-${status}-${index}`} className="inline-pair">
+                <div
+                  key={`${delayedInstalment}-${originalDueDate}-${status}-${index}`}
+                  className="inline-pair"
+                >
                   <span className="inline-value">{`${delayedInstalment} — ${originalDueDate} — ${status}`}</span>
                 </div>
               );
@@ -312,40 +526,105 @@ const renderDataValue = (value: unknown, inheritedCurrencyCode?: string | null, 
       );
     }
 
-    if (value.every((item) => item === null || item === undefined || typeof item !== 'object')) {
-      return <span>{value.map((item) => formatScalar(item)).join(', ')}</span>;
+    if (
+      value.every(
+        (item) =>
+          item === null || item === undefined || typeof item !== "object"
+      )
+    ) {
+      return <span>{value.map((item) => formatScalar(item)).join(", ")}</span>;
     }
 
     return (
       <div className="nested-list">
         {value.map((item, index) => {
           const title = getContextualTitle(item, index);
-          const record = item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>) : null;
-          const isDefermentPeriod = !!(record && ('startDate' in record || 'endDate' in record));
+          const record =
+            item && typeof item === "object" && !Array.isArray(item)
+              ? (item as Record<string, unknown>)
+              : null;
+          const isDefermentPeriod = !!(
+            record &&
+            ("startDate" in record || "endDate" in record)
+          );
           const isCurrencyAmount = isCurrencyAmountObject(item);
-          const isDelayedAmountObject = !!(record && ('delayedInstalment' in record || 'originalDueDate' in record || 'isForeclosed' in record));
-          const isYearMonthGroup = !!(record && 'months' in record && Array.isArray(record.months));
-          const isLoanCollectionItem = !!(record && ('loanType' in record || 'currencyCode' in record || 'borrowersCount' in record || 'businessInformation' in record || 'lumpSumLoan' in record || 'runningAccountLoan' in record || 'leasingContract' in record));
+          const isDelayedAmountObject = !!(
+            record &&
+            ("delayedInstalment" in record ||
+              "originalDueDate" in record ||
+              "isForeclosed" in record)
+          );
+          const isYearMonthGroup = !!(
+            record &&
+            "months" in record &&
+            Array.isArray(record.months)
+          );
+          const isLoanCollectionItem = !!(
+            record &&
+            ("loanType" in record ||
+              "currencyCode" in record ||
+              "borrowersCount" in record ||
+              "businessInformation" in record ||
+              "lumpSumLoan" in record ||
+              "runningAccountLoan" in record ||
+              "leasingContract" in record)
+          );
           const summaryTitle = isYearMonthGroup
             ? String(record?.year ?? title)
             : isLoanCollectionItem
-              ? `Loan ${index + 1}`
-              : isCurrencyAmount
-                ? formatCurrencyAmountSummary(item as { currencyCode?: string | null; sum?: number | string | null })
-                : isDefermentPeriod
-                  ? `${formatDate((record as Record<string, unknown>).startDate as string | null | undefined)} - ${formatDate((record as Record<string, unknown>).endDate as string | null | undefined)}`
-                  : isDelayedAmountObject
-                    ? `${formatScalar((record as Record<string, unknown>).delayedInstalment ?? 'Not provided')} — ${formatDate((record as Record<string, unknown>).originalDueDate as string | null | undefined)}${((record as Record<string, unknown>).isForeclosed === true) ? ' — Foreclosed' : ''}`
-                    : title;
+            ? `Loan ${index + 1}`
+            : isCurrencyAmount
+            ? formatCurrencyAmountSummary(
+                item as {
+                  currencyCode?: string | null;
+                  sum?: number | string | null;
+                }
+              )
+            : isDefermentPeriod
+            ? `${formatDate(
+                (record as Record<string, unknown>).startDate as
+                  | string
+                  | null
+                  | undefined
+              )} - ${formatDate(
+                (record as Record<string, unknown>).endDate as
+                  | string
+                  | null
+                  | undefined
+              )}`
+            : isDelayedAmountObject
+            ? `${formatScalar(
+                (record as Record<string, unknown>).delayedInstalment ??
+                  "Not provided"
+              )} — ${formatDate(
+                (record as Record<string, unknown>).originalDueDate as
+                  | string
+                  | null
+                  | undefined
+              )}${
+                (record as Record<string, unknown>).isForeclosed === true
+                  ? " — Foreclosed"
+                  : ""
+              }`
+            : title;
 
-          const shouldRenderBody = isYearMonthGroup || isLoanCollectionItem || (!isDefermentPeriod && !isCurrencyAmount && !isDelayedAmountObject);
+          const shouldRenderBody =
+            isYearMonthGroup ||
+            isLoanCollectionItem ||
+            (!isDefermentPeriod && !isCurrencyAmount && !isDelayedAmountObject);
 
           return (
-            <details key={`${title}-${index}`} className="nested-item" open={false}>
+            <details
+              key={`${title}-${index}`}
+              className="nested-item"
+              open={false}
+            >
               <summary className="nested-summary">{summaryTitle}</summary>
               {shouldRenderBody && (
                 <div className="nested-body">
-                  {isYearMonthGroup ? renderDataValue(record?.months, inheritedCurrencyCode) : renderDataValue(item, inheritedCurrencyCode)}
+                  {isYearMonthGroup
+                    ? renderDataValue(record?.months, inheritedCurrencyCode)
+                    : renderDataValue(item, inheritedCurrencyCode)}
                 </div>
               )}
             </details>
@@ -355,33 +634,49 @@ const renderDataValue = (value: unknown, inheritedCurrencyCode?: string | null, 
     );
   }
 
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     if (isCurrencyAmountObject(value)) {
       return <span>{formatCurrencyAmountSummary(value)}</span>;
     }
     const record = value as Record<string, unknown>;
     const entries = orderDisplayEntries(Object.entries(record));
-    if (entries.length === 0) return 'Not provided';
+    if (entries.length === 0) return "Not provided";
 
-    const currencyCode = typeof record.currencyCode === 'string' ? record.currencyCode : inheritedCurrencyCode ?? null;
+    const currencyCode =
+      typeof record.currencyCode === "string"
+        ? record.currencyCode
+        : inheritedCurrencyCode ?? null;
 
-    if ('months' in record && Array.isArray(record.months)) {
-      const yearValue = typeof record.year === 'number' || typeof record.year === 'string' ? String(record.year) : 'Months';
+    if ("months" in record && Array.isArray(record.months)) {
+      const yearValue =
+        typeof record.year === "number" || typeof record.year === "string"
+          ? String(record.year)
+          : "Months";
       return (
         <details className="nested-item" open={false}>
           <summary className="nested-summary">{yearValue}</summary>
-          <div className="nested-body">{renderDataValue(record.months, currencyCode)}</div>
+          <div className="nested-body">
+            {renderDataValue(record.months, currencyCode)}
+          </div>
         </details>
       );
     }
 
-    const isSimpleInlineObject = entries.length <= 4 && entries.every(([key, child]) => {
-      if (key === 'currencyCode' || key === 'months') return true;
-      if (child === null || child === undefined || child === '') return true;
-      if (typeof child === 'string' || typeof child === 'number' || typeof child === 'boolean') return true;
-      if (Array.isArray(child)) return child.every((entry) => typeof entry !== 'object');
-      return false;
-    });
+    const isSimpleInlineObject =
+      entries.length <= 4 &&
+      entries.every(([key, child]) => {
+        if (key === "currencyCode" || key === "months") return true;
+        if (child === null || child === undefined || child === "") return true;
+        if (
+          typeof child === "string" ||
+          typeof child === "number" ||
+          typeof child === "boolean"
+        )
+          return true;
+        if (Array.isArray(child))
+          return child.every((entry) => typeof entry !== "object");
+        return false;
+      });
 
     if (isSimpleInlineObject) {
       return formatInlinePairs(record, currencyCode);
@@ -391,20 +686,30 @@ const renderDataValue = (value: unknown, inheritedCurrencyCode?: string | null, 
       <div className="nested-object">
         {entries
           .filter(([key, child]) => {
-            if (key === 'currencyCode' || key === 'months') return false;
+            if (key === "currencyCode" || key === "months") return false;
             if (shouldSuppressTitleField(key, record)) return false;
             return hasMeaningfulContent(child);
           })
           .map(([key, child]) => {
-            const resolvedValue = isMonthFieldKey(key) ? resolveMonthValue(child) : child;
-            const isBooleanInline = typeof resolvedValue === 'boolean';
-            const isStandaloneList = Array.isArray(resolvedValue) && (isCurrencyAmountList(resolvedValue) || isDateRangeList(resolvedValue) || isDelayedAmountList(resolvedValue));
-            const fieldValue = (Array.isArray(resolvedValue) || (resolvedValue !== null && typeof resolvedValue === 'object'))
-              ? renderDataValue(resolvedValue, currencyCode, key)
-              : formatCurrencyAwareValue(key, resolvedValue, currencyCode);
+            const resolvedValue = isMonthFieldKey(key)
+              ? resolveMonthValue(child)
+              : child;
+            const isBooleanInline = typeof resolvedValue === "boolean";
+            const isStandaloneList =
+              Array.isArray(resolvedValue) &&
+              (isCurrencyAmountList(resolvedValue) ||
+                isDateRangeList(resolvedValue) ||
+                isDelayedAmountList(resolvedValue));
+            const fieldValue =
+              Array.isArray(resolvedValue) ||
+              (resolvedValue !== null && typeof resolvedValue === "object")
+                ? renderDataValue(resolvedValue, currencyCode, key)
+                : formatCurrencyAwareValue(key, resolvedValue, currencyCode);
             return (
               <div key={key} className="field-row">
-                {!isStandaloneList && <div className="field-key">{humanizeLabel(key)}:</div>}
+                {!isStandaloneList && (
+                  <div className="field-key">{humanizeLabel(key)}:</div>
+                )}
                 <div className="field-value">
                   {isBooleanInline ? `${fieldValue}` : fieldValue}
                 </div>
@@ -415,34 +720,44 @@ const renderDataValue = (value: unknown, inheritedCurrencyCode?: string | null, 
     );
   }
 
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'string') return formatScalar(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return formatScalar(value);
 
   return String(value);
 };
 
 const hasMeaningfulContent = (value: unknown): boolean => {
-  if (value === null || value === undefined || value === '') return false;
+  if (value === null || value === undefined || value === "") return false;
 
   if (Array.isArray(value)) {
-    return value.length > 0 && value.some((entry) => hasMeaningfulContent(entry));
+    return (
+      value.length > 0 && value.some((entry) => hasMeaningfulContent(entry))
+    );
   }
 
-  if (typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).some((entry) => hasMeaningfulContent(entry));
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some((entry) =>
+      hasMeaningfulContent(entry)
+    );
   }
 
   return true;
 };
 
 const getDisplayId = (extract?: CreditRegisterExtract | null) => {
-  return extract?.personRequested?.idCode ?? extract?.owner?.idCode ?? 'Unknown consumer';
+  return (
+    extract?.personRequested?.idCode ??
+    extract?.owner?.idCode ??
+    "Unknown consumer"
+  );
 };
 
 function App() {
   const [request, setRequest] = useState<CreditExtractRequest>(DEFAULT_REQUEST);
-  const [historyLookup, setHistoryLookup] = useState(DEFAULT_REQUEST.personalIdCode);
+  const [historyLookup, setHistoryLookup] = useState(
+    DEFAULT_REQUEST.personalIdCode
+  );
   const [history, setHistory] = useState<CreditExtractHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -451,15 +766,82 @@ function App() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
-  const [detailsExtract, setDetailsExtract] = useState<CreditRegisterExtract | null>(null);
-  const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
-  const [loadedHistoryConsumer, setLoadedHistoryConsumer] = useState<string | null>(null);
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [detailsExtract, setDetailsExtract] =
+    useState<CreditRegisterExtract | null>(null);
+  const [loadedHistoryConsumer, setLoadedHistoryConsumer] = useState<
+    string | null
+  >(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
+    "idle"
+  );
+  const [financingRequest, setFinancingRequest] =
+    useState<FinancingRequestPayload>(DEFAULT_FINANCING_REQUEST);
+  const [financingRequests, setFinancingRequests] = useState<
+    FinancingRequestResponse[]
+  >([]);
+  const [financingLoading, setFinancingLoading] = useState(false);
+  const [financingError, setFinancingError] = useState<string | null>(null);
+  const [financingSuccess, setFinancingSuccess] = useState<string | null>(null);
+
+  const loadFinancingRequests = async () => {
+    setFinancingLoading(true);
+    setFinancingError(null);
+
+    try {
+      const result = await fetchFinancingRequests();
+      setFinancingRequests(result ?? []);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to load financing requests.";
+      setFinancingError(message);
+      setFinancingRequests([]);
+    } finally {
+      setFinancingLoading(false);
+    }
+  };
+
+  const handleCreateFinancingRequest = async () => {
+    const trimmedId = financingRequest.personIdCode.trim();
+    if (!trimmedId) {
+      setFinancingError("Please enter a consumer ID or test ID.");
+      setFinancingSuccess(null);
+      return;
+    }
+
+    setFinancingLoading(true);
+    setFinancingError(null);
+    setFinancingSuccess(null);
+
+    try {
+      const created = await createFinancingRequest({
+        ...financingRequest,
+        personIdCode: trimmedId,
+      });
+      setFinancingRequest((current) => ({
+        ...current,
+        personIdCode: trimmedId,
+      }));
+      setFinancingSuccess(
+        `Created financing request for ${created.personIdCode} (${created.banCheckStatus}).`
+      );
+      await loadFinancingRequests();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to create financing request.";
+      setFinancingError(message);
+    } finally {
+      setFinancingLoading(false);
+    }
+  };
 
   const loadHistory = async (personIdCode: string) => {
     const trimmedId = personIdCode.trim();
     if (!trimmedId) {
-      setHistoryError('Please enter a consumer ID or test ID.');
+      setHistoryError("Please enter a consumer ID or test ID.");
       return;
     }
 
@@ -471,7 +853,10 @@ function App() {
       setHistory(nextHistory ?? []);
       setLoadedHistoryConsumer(trimmedId);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Unable to load history.';
+      const message =
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load history.";
       setHistoryError(message);
       setHistory([]);
     } finally {
@@ -487,7 +872,7 @@ function App() {
     };
 
     if (!trimmedId) {
-      setFetchError('Please enter a consumer ID or test ID.');
+      setFetchError("Please enter a consumer ID or test ID.");
       return;
     }
 
@@ -499,7 +884,7 @@ function App() {
       const extracted = result?.extract?.creditRegisterExtract ?? null;
 
       if (!extracted) {
-        setFetchError('The backend returned an empty extract response.');
+        setFetchError("The backend returned an empty extract response.");
         return;
       }
 
@@ -512,7 +897,10 @@ function App() {
         await loadHistory(trimmedId);
       }
     } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : 'Unable to fetch credit extract.';
+      const message =
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Unable to fetch credit extract.";
       setFetchError(message);
     } finally {
       setFetchLoading(false);
@@ -522,7 +910,7 @@ function App() {
   const handleHistoryLookup = async () => {
     const trimmedId = historyLookup.trim();
     if (!trimmedId) {
-      setHistoryError('Please enter a consumer ID or test ID.');
+      setHistoryError("Please enter a consumer ID or test ID.");
       return;
     }
 
@@ -536,22 +924,23 @@ function App() {
     setDetailsOpen(true);
     setDetailsLoading(true);
     setDetailsError(null);
-    setLoadingItemId(item.id);
 
     try {
       const result = await fetchCreditExtractById(item.id);
       const extracted = result?.extract?.creditRegisterExtract ?? null;
       setDetailsExtract(extracted);
       if (!extracted) {
-        setDetailsError('The selected extract could not be loaded.');
+        setDetailsError("The selected extract could not be loaded.");
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to load the selected extract.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to load the selected extract.";
       setDetailsError(message);
       setDetailsExtract(null);
     } finally {
       setDetailsLoading(false);
-      setLoadingItemId(null);
     }
   };
 
@@ -562,11 +951,11 @@ function App() {
 
     try {
       await navigator.clipboard.writeText(payload);
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 1500);
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 1500);
     } catch {
-      setCopyState('error');
-      window.setTimeout(() => setCopyState('idle'), 1500);
+      setCopyState("error");
+      window.setTimeout(() => setCopyState("idle"), 1500);
     }
   };
 
@@ -574,11 +963,14 @@ function App() {
     if (!detailsExtract) return;
 
     const payload = JSON.stringify(detailsExtract, null, 2);
-    const blob = new Blob([payload], { type: 'application/json' });
+    const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `${getDisplayId(detailsExtract).replace(/\s+/g, '-').toLowerCase() || 'credit-extract'}.json`;
+    link.download = `${
+      getDisplayId(detailsExtract).replace(/\s+/g, "-").toLowerCase() ||
+      "credit-extract"
+    }.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -587,13 +979,14 @@ function App() {
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         setDetailsOpen(false);
       }
     };
 
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
+    void loadFinancingRequests();
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
   }, []);
 
   return (
@@ -640,29 +1033,197 @@ function App() {
                 onChange={(event) =>
                   setRequest((current) => ({
                     ...current,
-                    extractPurpose: event.target.value as CreditRegisterExtractPurpose,
+                    extractPurpose: event.target
+                      .value as CreditRegisterExtractPurpose,
                   }))
                 }
               >
                 <option value="NewConsumerCredit">New Consumer Credit</option>
-                <option value="IncreaseOfConsumerCreditPrincipalOrCreditLimit">Increase Consumer Credit</option>
-                <option value="ChangesToTermsOfConsumerCredit">Changes to Terms</option>
-                <option value="GuaranteeOrThirdPartyPledgeForConsumerCredit">Guarantee / Pledge</option>
+                <option value="IncreaseOfConsumerCreditPrincipalOrCreditLimit">
+                  Increase Consumer Credit
+                </option>
+                <option value="ChangesToTermsOfConsumerCredit">
+                  Changes to Terms
+                </option>
+                <option value="GuaranteeOrThirdPartyPledgeForConsumerCredit">
+                  Guarantee / Pledge
+                </option>
                 <option value="NewLoan">New Loan</option>
-                <option value="IncreaseOfLoanPrincipalOrCreditLimit">Increase Loan Principal</option>
+                <option value="IncreaseOfLoanPrincipalOrCreditLimit">
+                  Increase Loan Principal
+                </option>
                 <option value="ChangesToTerms">Changes to Loan Terms</option>
-                <option value="GuaranteeOrThirdPartyPledge">Loan Guarantee / Pledge</option>
+                <option value="GuaranteeOrThirdPartyPledge">
+                  Loan Guarantee / Pledge
+                </option>
               </select>
             </div>
 
             <div className="fetch-action-wrap">
-              <button type="button" className="fetch-button" onClick={() => void handleFetchData()} disabled={fetchLoading}>
-                {fetchLoading ? 'Fetching…' : 'Fetch'}
+              <button
+                type="button"
+                className="fetch-button"
+                onClick={() => void handleFetchData()}
+                disabled={fetchLoading}
+              >
+                {fetchLoading ? "Fetching…" : "Fetch"}
               </button>
             </div>
           </div>
 
           {fetchError && <div className="message error">{fetchError}</div>}
+        </section>
+
+        <section className="panel history-panel">
+          <div className="panel-heading">
+            <h2>Open Financing Request</h2>
+          </div>
+
+          <div className="fetch-controls fetch-row">
+            <div className="fetch-field">
+              <label className="field-label" htmlFor="financing-person-id">
+                Consumer ID / test ID
+              </label>
+              <input
+                id="financing-person-id"
+                type="text"
+                value={financingRequest.personIdCode}
+                onChange={(event) =>
+                  setFinancingRequest((current) => ({
+                    ...current,
+                    personIdCode: event.target.value,
+                  }))
+                }
+                placeholder="TEST-001"
+              />
+            </div>
+
+            <div className="fetch-field">
+              <label className="field-label" htmlFor="financing-loan-type">
+                Loan type
+              </label>
+              <select
+                id="financing-loan-type"
+                value={financingRequest.loanType}
+                onChange={(event) =>
+                  setFinancingRequest((current) => ({
+                    ...current,
+                    loanType: event.target.value as LoanType,
+                  }))
+                }
+              >
+                <option value="LumpSumLoan">Lump Sum Loan</option>
+                <option value="RunningAccountLoan">Running Account Loan</option>
+                <option value="Leasing">Leasing</option>
+                <option value="GuaranteeReceivable">
+                  Guarantee Receivable
+                </option>
+              </select>
+            </div>
+
+            <div className="fetch-field">
+              <label className="field-label" htmlFor="financing-purpose">
+                Purpose of use
+              </label>
+              <select
+                id="financing-purpose"
+                value={financingRequest.loanPurposeOfUse}
+                onChange={(event) =>
+                  setFinancingRequest((current) => ({
+                    ...current,
+                    loanPurposeOfUse: event.target.value as LoanPurposeOfUse,
+                  }))
+                }
+              >
+                <option value="OtherConsumerCredit">Basic</option>
+                <option value="HomeLoan">Home Loan</option>
+                <option value="HomeLoanForFirstHome">
+                  Home Loan For First Home
+                </option>
+                <option value="HomeLoanForLeisureHouse">
+                  Home Loan For Leisure House
+                </option>
+                <option value="HomeLoanForInvestmentPurposes">
+                  Home Loan For Investment Purposes
+                </option>
+                <option value="StudentLoan">Student Loan</option>
+                <option value="LoanForPurchaseOfVehicleOrCraft">
+                  Vehicle or Craft Loan
+                </option>
+                <option value="OtherLoan">Other Loan</option>
+                <option value="LoanForBusinessActivities">
+                  Business Activities Loan
+                </option>
+                <option value="GuaranteeReceivable">
+                  Guarantee Receivable
+                </option>
+              </select>
+            </div>
+
+            <div className="fetch-action-wrap">
+              <button
+                type="button"
+                className="fetch-button"
+                onClick={() => void handleCreateFinancingRequest()}
+                disabled={financingLoading}
+              >
+                {financingLoading ? "Opening…" : "Open"}
+              </button>
+            </div>
+          </div>
+
+          {financingError && (
+            <div className="message error">{financingError}</div>
+          )}
+          {financingSuccess && (
+            <div className="message success">{financingSuccess}</div>
+          )}
+
+          <div className="panel-heading secondary-heading">
+            <h2>Recent Financing Requests</h2>
+          </div>
+
+          {financingLoading && (
+            <div className="loading-state">Loading financing requests…</div>
+          )}
+          {!financingLoading && financingRequests.length === 0 && (
+            <div className="empty-state">No financing requests found.</div>
+          )}
+
+          {!financingLoading && financingRequests.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Submitted</th>
+                    <th>Person ID</th>
+                    <th>Loan type</th>
+                    <th>Purpose</th>
+                    <th>Ban</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {financingRequests.map((item) => (
+                    <tr key={item.id}>
+                      <td>{formatDateTime(item.submittedAt)}</td>
+                      <td>{item.personIdCode}</td>
+                      <td>{item.loanType}</td>
+                      <td>{item.loanPurposeOfUse}</td>
+                      <td>
+                        {item.voluntaryBanInEffect === null
+                          ? "Unknown"
+                          : item.voluntaryBanInEffect
+                          ? "Active"
+                          : "Inactive"}
+                      </td>
+                      <td>{item.banCheckStatus}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         <section className="panel history-panel">
@@ -678,15 +1239,26 @@ function App() {
               placeholder="TEST-001"
               className="history-search-input"
             />
-            <button type="button" className="history-search-button" onClick={() => void handleHistoryLookup()} disabled={historyLoading}>
-              {historyLoading ? 'Loading…' : 'Search'}
+            <button
+              type="button"
+              className="history-search-button"
+              onClick={() => void handleHistoryLookup()}
+              disabled={historyLoading}
+            >
+              {historyLoading ? "Loading…" : "Search"}
             </button>
           </div>
 
-          {historyLoading && <div className="loading-state">Loading history…</div>}
-          {!historyLoading && historyError && <div className="message error">{historyError}</div>}
+          {historyLoading && (
+            <div className="loading-state">Loading history…</div>
+          )}
+          {!historyLoading && historyError && (
+            <div className="message error">{historyError}</div>
+          )}
           {!historyLoading && !historyError && history.length === 0 && (
-            <div className="empty-state">No prior extracts found for this consumer.</div>
+            <div className="empty-state">
+              No prior extracts found for this consumer.
+            </div>
           )}
 
           {!historyLoading && history.length > 0 && (
@@ -704,9 +1276,13 @@ function App() {
                     const status = getBanStatus(item.voluntaryBanInEffect);
 
                     return (
-                      <tr key={item.id} className="history-row" onClick={() => void handleViewDetails(item)}>
+                      <tr
+                        key={item.id}
+                        className="history-row"
+                        onClick={() => void handleViewDetails(item)}
+                      >
                         <td>{formatDateTime(item.fetchedAt)}</td>
-                        <td>{item.extractReference ?? 'Not provided'}</td>
+                        <td>{item.extractReference ?? "Not provided"}</td>
                         <td className="status-text">{status}</td>
                       </tr>
                     );
@@ -720,18 +1296,34 @@ function App() {
 
       {detailsOpen && (
         <div className="modal-backdrop" onClick={() => setDetailsOpen(false)}>
-          <div className="modal-dialog" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+          <div
+            className="modal-dialog"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <div className="modal-header-title">
-                {detailsExtract ? getDisplayId(detailsExtract) : 'Extract details'}
+                {detailsExtract
+                  ? getDisplayId(detailsExtract)
+                  : "Extract details"}
               </div>
-              <button type="button" className="close-button" onClick={() => setDetailsOpen(false)} aria-label="Close modal">
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setDetailsOpen(false)}
+                aria-label="Close modal"
+              >
                 ×
               </button>
             </div>
 
-            {detailsLoading && <div className="loading-state">Loading extract details…</div>}
-            {detailsError && <div className="message error">{detailsError}</div>}
+            {detailsLoading && (
+              <div className="loading-state">Loading extract details…</div>
+            )}
+            {detailsError && (
+              <div className="message error">{detailsError}</div>
+            )}
 
             {!detailsLoading && detailsExtract && (
               <div className="modal-body">
@@ -742,15 +1334,23 @@ function App() {
                   </div>
                   <div className="detail-item inline-summary-item">
                     <span className="meta-label">Extract reference</span>
-                    <strong>{detailsExtract.extractReference ?? 'Not provided'}</strong>
+                    <strong>
+                      {detailsExtract.extractReference ?? "Not provided"}
+                    </strong>
                   </div>
                   <div className="detail-item inline-summary-item">
                     <span className="meta-label">Creation time</span>
-                    <strong>{formatDateTime(detailsExtract.creationTimeUtc)}</strong>
+                    <strong>
+                      {formatDateTime(detailsExtract.creationTimeUtc)}
+                    </strong>
                   </div>
                   <div className="detail-item inline-summary-item">
                     <span className="meta-label">Voluntary credit ban</span>
-                    <strong>{getBanStatus(detailsExtract.voluntaryBanOnCredits?.isInEffect)}</strong>
+                    <strong>
+                      {getBanStatus(
+                        detailsExtract.voluntaryBanOnCredits?.isInEffect
+                      )}
+                    </strong>
                   </div>
                 </div>
 
@@ -758,13 +1358,20 @@ function App() {
                   {Object.entries(detailsExtract)
                     .filter(
                       ([key, value]) =>
-                        !['statusMessage', 'personRequested', 'owner', 'extractReference', 'creationTimeUtc'].includes(key) &&
-                        hasMeaningfulContent(value),
+                        ![
+                          "statusMessage",
+                          "personRequested",
+                          "owner",
+                          "extractReference",
+                          "creationTimeUtc",
+                        ].includes(key) && hasMeaningfulContent(value)
                     )
                     .map(([key, value]) => (
                       <details key={key} className="data-section">
                         <summary>{humanizeLabel(key)}</summary>
-                        <div className="data-section-body">{renderDataValue(value)}</div>
+                        <div className="data-section-body">
+                          {renderDataValue(value)}
+                        </div>
                       </details>
                     ))}
                 </div>
@@ -773,21 +1380,35 @@ function App() {
                   <summary>
                     <span>Raw JSON</span>
                     <span className="raw-json-actions">
-                      <button type="button" className="raw-json-action" onClick={(event) => {
-                        event.stopPropagation();
-                        void handleCopyRawJson();
-                      }}>
-                        {copyState === 'copied' ? 'Copied' : copyState === 'error' ? 'Copy failed' : 'Copy'}
+                      <button
+                        type="button"
+                        className="raw-json-action"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleCopyRawJson();
+                        }}
+                      >
+                        {copyState === "copied"
+                          ? "Copied"
+                          : copyState === "error"
+                          ? "Copy failed"
+                          : "Copy"}
                       </button>
-                      <button type="button" className="raw-json-action" onClick={(event) => {
-                        event.stopPropagation();
-                        handleDownloadRawJson();
-                      }}>
+                      <button
+                        type="button"
+                        className="raw-json-action"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDownloadRawJson();
+                        }}
+                      >
                         Download
                       </button>
                     </span>
                   </summary>
-                  <pre className="raw-json">{JSON.stringify(detailsExtract, null, 2)}</pre>
+                  <pre className="raw-json">
+                    {JSON.stringify(detailsExtract, null, 2)}
+                  </pre>
                 </details>
               </div>
             )}
