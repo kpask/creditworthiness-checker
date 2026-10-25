@@ -10,6 +10,7 @@ import com.example.creditworthinesschecker.enums.BanCheckStatus;
 import com.example.creditworthinesschecker.enums.IdCodeType;
 import com.example.creditworthinesschecker.enums.LoanPurposeOfUse;
 import com.example.creditworthinesschecker.enums.LoanType;
+import com.example.creditworthinesschecker.exceptions.NotFoundException;
 import com.example.creditworthinesschecker.exceptions.PcrRequestFailedException;
 import com.example.creditworthinesschecker.repository.FinancingRequestRepository;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,23 @@ class FinancingRequestServiceTest {
         );
         when(creditService.fetchCreditRegisterExtract(any(CreditExtractRequest.class)))
                 .thenThrow(new PcrRequestFailedException("PCR rejected", null));
+        when(repository.save(any(FinancingRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        FinancingRequestResponse response = service.createFinancingRequest(request);
+
+        assertEquals(BanCheckStatus.FAILED, response.banCheckStatus());
+        assertNull(response.voluntaryBanInEffect());
+    }
+
+    @Test
+    void createMarksFailedWhenConsumerNotFoundInPcr() {
+        FinancingRequestRequest request = new FinancingRequestRequest(
+                "UNKNOWN-999",
+                LoanType.LumpSumLoan,
+                LoanPurposeOfUse.OtherConsumerCredit
+        );
+        when(creditService.fetchCreditRegisterExtract(any(CreditExtractRequest.class)))
+                .thenThrow(new NotFoundException("Requested person was not found in the credit register."));
         when(repository.save(any(FinancingRequest.class))).thenAnswer(inv -> inv.getArgument(0));
 
         FinancingRequestResponse response = service.createFinancingRequest(request);

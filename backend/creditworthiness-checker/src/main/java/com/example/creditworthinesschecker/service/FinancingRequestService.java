@@ -54,7 +54,7 @@ public class FinancingRequestService {
             }
 
             return response.extract().creditRegisterExtract().voluntaryBanOnCredits() != null;
-        } catch (PcrRequestFailedException ex) {
+        } catch (PcrRequestFailedException | NotFoundException ex) {
             System.err.println("PCR ban check failed: " + ex.getMessage());
             return null;
         }

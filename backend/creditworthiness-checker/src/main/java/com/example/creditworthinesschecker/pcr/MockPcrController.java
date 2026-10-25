@@ -2,6 +2,7 @@
 package com.example.creditworthinesschecker.pcr;
 
 import com.example.creditworthinesschecker.dto.PcrCreditExtractRequest;
+import com.example.creditworthinesschecker.dto.PcrErrorResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
@@ -15,14 +16,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/mock-pcr")
 public class MockPcrController {
     private final ObjectMapper objectMapper;
     @Value("${mock-pcr.available:true}")
-    private boolean available;
+    private boolean available = true;
+
     private final Map<String, String> fixtures = Map.of(
             "TEST-001", "mock-pcr/consumer-001.json",
             "TEST-002", "mock-pcr/consumer-002.json",
@@ -35,7 +39,7 @@ public class MockPcrController {
     }
 
     @PostMapping("/credit-register-extract")
-    public ResponseEntity<JsonNode> fetchCreditExtract(@RequestBody @Valid PcrCreditExtractRequest request) {
+    public ResponseEntity<?> fetchCreditExtract(@RequestBody @Valid PcrCreditExtractRequest request) {
         if (!available) {
             return ResponseEntity
                     .status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -44,7 +48,16 @@ public class MockPcrController {
 
         String fixturePath = fixtures.get(request.requestedIdCode());
         if (fixturePath == null) {
-            return ResponseEntity.badRequest().build();
+            PcrErrorResponse errorResponse = new PcrErrorResponse(
+                    "Bad request",
+                    UUID.randomUUID(),
+                    List.of(new PcrErrorResponse.ErrorItem(
+                            "requestedIdCode",
+                            "PERSON_NOT_FOUND",
+                            "Requested person was not found in the credit register."
+                    ))
+            );
+            return ResponseEntity.badRequest().body(errorResponse);
         }
 
         try {
@@ -53,5 +66,9 @@ public class MockPcrController {
         } catch (IOException e) {
             throw new IllegalStateException("Could not load PCR mock fixture: " + fixturePath, e);
         }
+    }
+
+    public void setAvailable(boolean available) {
+        this.available = available;
     }
 }
