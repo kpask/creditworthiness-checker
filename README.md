@@ -1,5 +1,7 @@
 # Creditworthiness Checker (PCR PoC)
 
+**App video walkthrough (~5 min):** [Watch here](https://drive.google.com/file/d/1yGLnlDsuN2mN_UOc_ShzFTnd43wAXukB/view?usp=sharing)
+
 ## What this is
 
 In Finland, credit institutions must assess a consumer's creditworthiness on a fair, common and transparent basis, to prevent households from taking on too much debt. The Positive Credit Register (PCR), run by the Incomes Register Unit of the Finnish Tax Administration, holds the credit information used for that assessment.
@@ -102,8 +104,8 @@ Both databases live on one PostgreSQL instance in Compose, but each service only
 
 ## Assumptions
 
-- **The PCR is mocked because the real API is not publicly accessible.** A small controller (`/mock-pcr/...`) in the backend project follows the PCR response structure from the API description. The backend calls it over a real HTTP POST through a client layer, so pointing it at the real PCR would mainly be a base-URL/config change plus real auth and certificates (not implemented).
-- Only consumer (natural person) lookups are covered, as per the assignment. Not handled: company lookups, special handling of the deceased-person response, and change in parties to the loan.
+- **The PCR is mocked because the real API is not publicly accessible.** A small controller (`/mock-pcr/...`) in the backend project is based on the Finnish Tax Administration's [API description (v2.1)](https://www.vero.fi/globalassets/pore/dokumentaatio-2026/requesting-a-credit-register-extract---api-description_2.1.pdf): the request and response follow its structure and field names, but it only returns data for a few test consumers. The backend calls it over a real HTTP POST through a client layer, so pointing it at the real PCR would mainly be a base-URL/config change plus real auth and certificates (not implemented).
+- Only consumer (natural person) lookups are covered, as per the assignment. Not handled: company lookups and change in parties to the loan.
 - Per the API contract, the `voluntaryBanOnCredits` object is returned only when a voluntary credit ban is in effect, so the system treats **presence of the object as the ban signal**.
 - Consumer identifiers are synthetic (`TEST-00x`), not real personal identity codes.
 - Email goes to MailHog locally; production would use a real SMTP relay.
