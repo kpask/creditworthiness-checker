@@ -26,7 +26,7 @@ services:
 
   backend:
     build:
-      context: ./backend/creditworthiness-checker
+      context: ./creditworthiness-checker
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
 
   monitoring:
     build:
-      context: ./backend/MonitoringService
+      context: ./monitoringservice
     depends_on:
       postgres:
         condition: service_healthy

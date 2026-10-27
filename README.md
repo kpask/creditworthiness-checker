@@ -49,14 +49,14 @@ Needs Java 17, Node.js 20+, PostgreSQL and an SMTP server on `:1025` (e.g. MailH
 
 ```bash
 # copy config templates (once), for both backend services
-cp backend/creditworthiness-checker/src/main/resources/application.properties.template \
-   backend/creditworthiness-checker/src/main/resources/application.properties
-cp backend/MonitoringService/src/main/resources/application.properties.template \
-   backend/MonitoringService/src/main/resources/application.properties
+cp creditworthiness-checker/src/main/resources/application.properties.template \
+   creditworthiness-checker/src/main/resources/application.properties
+cp monitoringservice/src/main/resources/application.properties.template \
+   monitoringservice/src/main/resources/application.properties
 
 # run each in its own terminal
-cd backend/creditworthiness-checker && ./mvnw spring-boot:run
-cd backend/MonitoringService && ./mvnw spring-boot:run
+cd creditworthiness-checker && ./mvnw spring-boot:run
+cd monitoringservice && ./mvnw spring-boot:run
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
@@ -130,8 +130,8 @@ Both databases live on one PostgreSQL instance in Compose, but each service only
 ## Tests
 
 ```bash
-cd backend/creditworthiness-checker && ./mvnw verify
-cd backend/MonitoringService && ./mvnw verify
+cd creditworthiness-checker && ./mvnw verify
+cd monitoringservice && ./mvnw verify
 ```
 
 Backend tests (20) focus on the service layer: credit fetch, history, detail and financing requests, including the PCR-failure paths. MonitoringService has a smaller set of tests. Not covered: the PCR HTTP client's error mapping, controller/exception-handler tests, and frontend tests.
